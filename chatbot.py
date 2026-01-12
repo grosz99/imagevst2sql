@@ -279,7 +279,15 @@ def render_agent_result(result: AgentResult):
         with st.expander("SQL Query"):
             st.code(result.sql_query, language="sql")
 
-    if result.source_info:
+    # Show screenshot for Visual Context agent
+    if result.agent_name == "Visual Context" and result.source_info:
+        screenshot_path = Path(result.source_info)
+        if screenshot_path.exists():
+            with st.expander("Screenshot Used", expanded=True):
+                st.image(str(screenshot_path), use_container_width=True)
+        else:
+            st.caption(f"Source: {result.source_info}")
+    elif result.source_info:
         st.caption(f"Source: {result.source_info}")
 
 
