@@ -161,34 +161,41 @@ class VisualContextAgent:
             "texas tech": ["texas tech", "red raiders", "ttu"],
             "iowa state": ["iowa state", "cyclones", "isu"],
             "oklahoma state": ["oklahoma state", "cowboys", "okst"],
+            "south carolina": ["south carolina", "gamecocks", "sc"],
+            "georgia": ["georgia", "bulldogs", "uga"],
         }
 
         question_lower = question.lower()
 
-        # Find which team is mentioned
+        # First, find all teams mentioned in the question
+        teams_found = []
         for team_key, aliases in team_keywords.items():
             for alias in aliases:
                 if alias in question_lower:
-                    # Search for game with this team that has a screenshot
-                    conn = sqlite3.connect(self.db_path)
-                    cursor = conn.cursor()
-                    cursor.execute("""
-                        SELECT g.game_id, s.file_path
-                        FROM games g
-                        JOIN screenshots s ON g.game_id = s.game_id
-                        WHERE LOWER(g.home_team_name) LIKE ?
-                           OR LOWER(g.away_team_name) LIKE ?
-                           OR LOWER(g.home_team_abbrev) LIKE ?
-                           OR LOWER(g.away_team_abbrev) LIKE ?
-                        LIMIT 1
-                    """, (f"%{team_key}%", f"%{team_key}%", f"%{team_key}%", f"%{team_key}%"))
-                    row = cursor.fetchone()
-                    conn.close()
+                    teams_found.append(team_key)
+                    break  # Found this team, move to next
 
-                    if row:
-                        resolved_path = self._resolve_path(row[1])
-                        if resolved_path.exists():
-                            return (row[0], resolved_path)
+        # Try each team found until we get a screenshot
+        for team_key in teams_found:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT g.game_id, s.file_path
+                FROM games g
+                JOIN screenshots s ON g.game_id = s.game_id
+                WHERE LOWER(g.home_team_name) LIKE ?
+                   OR LOWER(g.away_team_name) LIKE ?
+                   OR LOWER(g.home_team_abbrev) LIKE ?
+                   OR LOWER(g.away_team_abbrev) LIKE ?
+                LIMIT 1
+            """, (f"%{team_key}%", f"%{team_key}%", f"%{team_key}%", f"%{team_key}%"))
+            row = cursor.fetchone()
+            conn.close()
+
+            if row:
+                resolved_path = self._resolve_path(row[1])
+                if resolved_path.exists():
+                    return (row[0], resolved_path)
 
         return None
 
