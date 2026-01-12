@@ -105,6 +105,16 @@ class VisualContextAgent:
         self.db_path = db_path
         self.screenshots_dir = screenshots_dir
 
+    def _resolve_path(self, db_path: str) -> Path:
+        """Resolve a database path to an absolute path."""
+        # Get project root (parent of src directory)
+        project_root = Path(__file__).parent.parent.parent
+        resolved = project_root / db_path
+        if resolved.exists():
+            return resolved
+        # Fallback: try as absolute path
+        return Path(db_path)
+
     def get_latest_screenshot(self, game_id: Optional[str] = None) -> Optional[Path]:
         """Get the most recent screenshot, optionally for a specific game."""
         conn = sqlite3.connect(self.db_path)
@@ -124,7 +134,7 @@ class VisualContextAgent:
         conn.close()
 
         if row:
-            return Path(row[0])
+            return self._resolve_path(row[0])
         return None
 
     def find_screenshot_by_team(self, question: str) -> Optional[tuple[str, Path]]:
@@ -175,8 +185,10 @@ class VisualContextAgent:
                     row = cursor.fetchone()
                     conn.close()
 
-                    if row and Path(row[1]).exists():
-                        return (row[0], Path(row[1]))
+                    if row:
+                        resolved_path = self._resolve_path(row[1])
+                        if resolved_path.exists():
+                            return (row[0], resolved_path)
 
         return None
 
@@ -191,8 +203,10 @@ class VisualContextAgent:
         row = cursor.fetchone()
         conn.close()
 
-        if row and Path(row[0]).exists():
-            return Path(row[0])
+        if row:
+            resolved_path = self._resolve_path(row[0])
+            if resolved_path.exists():
+                return resolved_path
 
         # Fallback: search screenshots directory by game_id pattern
         for f in self.screenshots_dir.glob("*.png"):
